@@ -36,9 +36,17 @@ async function handleProxy(req: NextRequest, method: string) {
 
     const responseHeaders = new Headers();
     backendRes.headers.forEach((value, key) => {
-      // Forward all response headers, especially 'Set-Cookie'
-      responseHeaders.append(key, value);
+      if (key.toLowerCase() !== 'set-cookie') {
+        responseHeaders.append(key, value);
+      }
     });
+
+    // Extract multiple set-cookie headers properly using getSetCookie() to prevent concatenation
+    const cookies = backendRes.headers.getSetCookie();
+    cookies.forEach((cookie) => {
+      responseHeaders.append('set-cookie', cookie);
+    });
+
 
     // Handle HTTP Redirects (3xx)
     if (backendRes.status >= 300 && backendRes.status < 400) {
