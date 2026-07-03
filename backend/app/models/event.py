@@ -1,10 +1,14 @@
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String, Integer, Text, JSON, DateTime
 from backend.app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from backend.app.models.repository import Repository
+    from backend.app.models.action_log import ActionLog
 
 class WebhookEvent(Base, TimestampMixin):
     """Raw record of received GitHub webhook delivery tracking lifecycle status."""

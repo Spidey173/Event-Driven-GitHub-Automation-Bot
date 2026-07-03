@@ -1,9 +1,14 @@
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String, BigInteger, Text, Boolean
 from backend.app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from backend.app.models.user import User
+    from backend.app.models.rule import Rule
+    from backend.app.models.event import WebhookEvent
 
 class Repository(Base, TimestampMixin):
     """GitHub Repositories connected and monitored by the user."""

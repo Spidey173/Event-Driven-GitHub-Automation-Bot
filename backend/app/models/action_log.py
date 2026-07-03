@@ -1,10 +1,14 @@
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy import ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String, JSON, DateTime
 from backend.app.models.base import Base
+
+if TYPE_CHECKING:
+    from backend.app.models.event import WebhookEvent
+    from backend.app.models.rule import Rule
 
 class ActionLog(Base):
     """Audit trail of execution actions performed by the bot on GitHub or Slack."""

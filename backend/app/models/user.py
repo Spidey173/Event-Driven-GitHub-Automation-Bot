@@ -1,9 +1,12 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String, BigInteger, Text, DateTime
 from backend.app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from backend.app.models.repository import Repository
 
 class User(Base, TimestampMixin):
     """User representation representing registered user with GitHub OAuth configuration."""

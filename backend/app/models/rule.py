@@ -1,9 +1,13 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TYPE_CHECKING
 from uuid import UUID, uuid4
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import String, Boolean, JSON
 from backend.app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from backend.app.models.repository import Repository
+    from backend.app.models.action_log import ActionLog
 
 class Rule(Base, TimestampMixin):
     """User-defined automation rule evaluating webhook conditions to execute specific actions."""
