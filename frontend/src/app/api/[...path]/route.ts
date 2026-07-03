@@ -11,7 +11,15 @@ async function handleProxy(req: NextRequest, method: string) {
   
   const headers = new Headers();
   req.headers.forEach((value, key) => {
-    if (key.toLowerCase() !== 'host') {
+    const lowerKey = key.toLowerCase();
+    if (
+      lowerKey !== 'host' &&
+      lowerKey !== 'content-length' &&
+      lowerKey !== 'connection' &&
+      lowerKey !== 'transfer-encoding' &&
+      lowerKey !== 'content-encoding' &&
+      lowerKey !== 'accept-encoding'
+    ) {
       headers.set(key, value);
     }
   });
@@ -36,10 +44,18 @@ async function handleProxy(req: NextRequest, method: string) {
 
     const responseHeaders = new Headers();
     backendRes.headers.forEach((value, key) => {
-      if (key.toLowerCase() !== 'set-cookie') {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey !== 'set-cookie' &&
+        lowerKey !== 'content-encoding' &&
+        lowerKey !== 'transfer-encoding' &&
+        lowerKey !== 'connection' &&
+        lowerKey !== 'content-length'
+      ) {
         responseHeaders.append(key, value);
       }
     });
+
 
     // Extract multiple set-cookie headers properly using getSetCookie() to prevent concatenation
     const cookies = backendRes.headers.getSetCookie();
