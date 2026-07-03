@@ -48,7 +48,13 @@ async def github_login() -> RedirectResponse:
         path="/"  # Restrict scope of cookie globally
     )
     
+    # Prevent proxy caching of authorization redirect response on Vercel/CDNs
+    redirect_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+    redirect_response.headers["Pragma"] = "no-cache"
+    redirect_response.headers["Expires"] = "0"
+    
     return redirect_response
+
 
 @router.get("/github/callback")
 async def github_callback(
@@ -175,7 +181,13 @@ async def github_callback(
         path="/"
     )
 
+    # Prevent proxy caching of callback redirect response
+    redirect_response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, private"
+    redirect_response.headers["Pragma"] = "no-cache"
+    redirect_response.headers["Expires"] = "0"
+
     return redirect_response
+
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(response: Response) -> dict:
