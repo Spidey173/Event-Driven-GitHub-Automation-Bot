@@ -52,3 +52,9 @@ This utility automatically parses comma-separated lists and JSON arrays, prevent
 2. **Dedicated Redis Queue**: Shift back to Celery + Redis if webhook execution volumes scale beyond single-instance memory thresholds.
 3. **AI Issue Triage (Gemini API)**: Integrate Gemini API to analyze incoming issue titles and bodies, auto-summarize them, and suggest labels/triage priorities dynamically.
 4. **Multi-Repository Config Panel**: Enable users to define distinct condition thresholds and custom actions for individual repositories in the dashboard.
+
+---
+
+## 5. AI Context / Instruction Files
+* **Status**: No custom AI context or instruction files (such as `CLAUDE.md`, `AGENTS.md`, or `.cursorrules`) were used for this project. All prompts and instructions were given directly to the coding assistant.
+
