@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.api.deps import get_db, get_current_user
 from backend.app.models.user import User
 from backend.app.models.repository import Repository
-from backend.app.models.rule import Rule
 from backend.app.schemas.repository import RepositoryConnect, RepositoryResponse, GitHubRepoResponse
 from backend.app.services.encryption import encrypt_token, decrypt_token
 from backend.app.services.github_client import GitHubClient
@@ -67,7 +66,7 @@ async def connect_repository(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Repository:
-    """Saves repository connection details and seeds a default rule."""
+    """Saves repository connection details."""
     # 1. Prevent duplicate connections
     dup_result = await db.execute(
         select(Repository).where(Repository.github_repo_id == payload.github_repo_id)
@@ -99,27 +98,6 @@ async def connect_repository(
         slack_webhook_url_encrypted=encrypted_slack_url
     )
     db.add(new_repo)
-    await db.flush()  # Capture database-generated primary keys
-
-    # 5. Seed default rule to automate MVP bug tagging out-of-the-box
-    default_rule = Rule(
-        repository_id=new_repo.id,
-        name="Auto Bug Labeler",
-        event_type="issues",
-        conditions={
-            "field": "title",
-            "operator": "contains",
-            "value": "bug"
-        },
-        actions=[
-            {"type": "add_label", "value": "bug"},
-            {"type": "create_comment", "value": "Thank you for reporting this issue! The bot has automatically tagged this as a bug."},
-            {"type": "send_slack", "value": "Issue #{number} opened in {repo}: *{title}* (Tagged as bug)"}
-        ],
-        is_active=True
-    )
-    db.add(default_rule)
-    
     await db.commit()
     await db.refresh(new_repo)
 
