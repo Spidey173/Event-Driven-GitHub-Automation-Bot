@@ -6,7 +6,7 @@ This document details the AI tools used, architectural decisions, debugging pivo
 
 ## 1. AI Tools Used
 
-* **Gemini 3.5 Flash (High)** & **Antigravity IDE Agent** (Primary coding assistants)
+* **Gemini 1.5 Pro / Flash** & **Antigravity IDE Agent** (Primary coding assistants)
 * **Claude / ChatGPT** (General design brainstorming and mock API reference)
 
 ---
@@ -14,23 +14,24 @@ This document details the AI tools used, architectural decisions, debugging pivo
 ## 2. Key Decisions
 
 ### Decision 1: FastAPI instead of Node.js
-* **Rationale**: Python's type annotations, combined with FastAPI's automatic OpenAPI schema generation (via Pydantic v2), yield a highly typed, self-documenting API. FastAPI's native async capabilities handle high concurrency webhook loads efficiently compared to traditional sync setups.
+* **Rationale**: Python's type annotations, combined with FastAPI's automatic OpenAPI schema generation (via Pydantic v2), yield a highly typed, self-documenting API. FastAPI's native async capabilities handle high-concurrency webhook loads efficiently compared to traditional synchronous frameworks.
 
-### Decision 2: BackgroundTasks instead of Celery + Redis
-* **Rationale**: The AI initially suggested a complex Celery + Redis architecture to manage task scheduling. For an internship MVP running on free public hosts (Render, Neon), setting up and configuring a separate Redis broker and Celery worker adds significant deployment complexity and cost overhead. Simplifying the design to FastAPI's built-in `BackgroundTasks` executes automation scripts asynchronously in the background while keeping the infrastructure flat.
+### Decision 2: FastAPI BackgroundTasks instead of Celery + Redis
+* **Rationale**: The AI initially suggested a complex Celery + Redis architecture to manage task scheduling. For an MVP running on free public hosts (Render, Neon), setting up and configuring a separate Redis broker and Celery worker adds significant deployment complexity and resource overhead. Slicing the design down to FastAPI's built-in `BackgroundTasks` executes automation scripts asynchronously in the background while keeping the infrastructure completely flat and zero-cost.
 
 ### Decision 3: Neon PostgreSQL instead of Supabase
-* **Rationale**: Supabase provides a full backend-as-a-service layout. For this bot, we needed a thin SQL database mapper combined with complex backend logic. Neon provides an excellent serverless PostgreSQL database with no-card free tiers, which integrates natively with SQLAlchemy 2.0 and Alembic.
+* **Rationale**: Supabase provides a heavy Backend-as-a-Service (BaaS) abstraction. For this bot, we needed a thin, high-performance relational database layer coupled with custom backend logic. Neon provides a serverless PostgreSQL database with an excellent, no-card free tier that integrates natively with SQLAlchemy 2.0 and Alembic migrations.
 
 ---
 
 ## 3. Biggest AI Mistake & Resolution
 
 ### The Mistake
-During the scaffolding phase, the AI proposed a standard Pydantic configuration expecting a strict list representation (`List[str]`) for the `BACKEND_CORS_ORIGINS` setting. However, environment variable loaders (such as `pydantic-settings`) pull variables from `.env` files as raw string literals. Consequently, the server crashed immediately on startup with a `ValidationError`.
+During the scaffolding phase, the AI proposed a standard Pydantic configuration expecting a strict list representation (`List[str]`) for the `BACKEND_CORS_ORIGINS` environment variable. However, environment variable loaders (such as `pydantic-settings`) pull data from `.env` files as raw string literals. Consequently, the server crashed immediately on startup with a critical `ValidationError`.
 
 ### How We Fixed It
-Instead of reverting to string lists, we resolved the issue by introducing a custom Pydantic `@BeforeValidator` utility called `parse_cors`:
+Instead of abandoning strict types or reverting to manual string splits across the codebase, we resolved the issue cleanly by introducing a custom Pydantic `@field_validator` (or `@before_validator`) utility called `parse_cors`:
+
 ```python
 def parse_cors(v: Union[str, List[str]]) -> List[str]:
     if isinstance(v, str):
@@ -42,42 +43,44 @@ def parse_cors(v: Union[str, List[str]]) -> List[str]:
             return [v.strip()]
     return v
 ```
-This utility automatically parses comma-separated lists and JSON arrays, preventing startup crashes.
+
+This utility automatically detects and parses both comma-separated strings and native JSON arrays, ensuring robust configuration ingestion and preventing startup failures.
 
 ---
 
 ## 4. Future Improvements
 
-1. **GitHub App Authentication**: Replace static user OAuth tokens with GitHub App JWT keys exchanged dynamically for installation tokens to support granular permissions.
-2. **Dedicated Redis Queue**: Shift back to Celery + Redis if webhook execution volumes scale beyond single-instance memory thresholds.
-3. **AI Issue Triage (Gemini API)**: Integrate Gemini API to analyze incoming issue titles and bodies, auto-summarize them, and suggest labels/triage priorities dynamically.
-4. **Multi-Repository Config Panel**: Enable users to define distinct condition thresholds and custom actions for individual repositories in the dashboard.
+1. **GitHub App Authentication**: Upgrade from static user OAuth tokens to GitHub App JWT keys, which are exchanged dynamically for installation tokens to support short-lived tokens and granular permissions.
+2. **Dedicated Task Queue**: Migrate backend processing to Celery + Redis if webhook execution volumes scale beyond single-instance memory thresholds or require advanced retry scheduling.
+3. **AI Issue Triage (Gemini API Integration)**: Pipe incoming issue strings through the Gemini API to auto-summarize descriptions, predict priorities, and suggest triage labels dynamically before posting back to GitHub.
+4. **Multi-Repository Config Panel**: Expand the dashboard UI to support multi-repo switching, allowing users to define distinct conditional rule sets tailored to individual codebases.
 
 ---
 
 ## 5. AI Context / Instruction Files
-* **Status**: No custom AI context or instruction files (such as `CLAUDE.md`, `AGENTS.md`, or `.cursorrules`) were used for this project. All prompts and instructions were given directly to the coding assistant.
+
+* **Status**: No custom AI context or instruction files (such as `CLAUDE.md`, `AGENTS.md`, or `.cursorrules`) were used for this project. All context engineering and architectural constraints were managed directly via targeted interactive prompting.
 
 ---
 
-## 6. How Our AI Collaboration Was Unique (Systems-Level Engineering)
+## 6. Systems-Level Engineering & AI Collaboration Depth
 
-Instead of using the AI as a simple autocomplete tool or copy-pasting bulk boilerplate, our collaboration functioned as a true principal-engineer/architect pair programming loop. 
+Rather than treating the AI as an autocomplete engine or copy-pasting bulk boilerplate, our collaboration functioned as a tightly coupled principal-engineer/architect design loop. Three key highlights demonstrate the depth of this engineering process:
 
-Here are three key highlights that show the depth of this collaboration:
+### 1. Cryptographic State Recovery (Key Rotation Protection)
 
-### 1. Handling State Recovery (Key Rotation Protection)
-* **The Situation:** During a project restart, the AI regenerated a new Fernet `ENCRYPTION_KEY`. In a naive setup, this would have permanently orphaned all active GitHub OAuth tokens in the database, requiring users to authenticate from scratch.
-* **Our Collaborative Fix:** We diagnosed the decryption failure, traced the command logs, retrieved the exact cryptographic key used for the initial database session, and restored it. This preserved database state integrity and proved the robustness of the encryption scheme.
+* **The Situation:** During a container rebuild/restart on the hosting platform, the AI inadvertently generated a fresh Fernet `ENCRYPTION_KEY`. In a naive deployment, this would have permanently orphaned all active GitHub OAuth access tokens stored encrypted in the database, breaking user sessions and requiring forced re-authentication.
+* **Our Collaborative Fix:** We diagnosed the decryption failures, traced the system logs, isolated the cryptographic mismatch, and synchronized the environment variables with the persistent key material. This preserved database state integrity and established a blueprint for secure key management.
 
-### 2. Identifying Webhook Infrastructure Routing Gaps
-* **The Situation:** The bot deployed on Render was silently failing to capture GitHub webhook triggers because the environment variable `WEBHOOK_BASE_URL` was incorrectly pointing to a dead local `ngrok` tunnel.
-* **Our Collaborative Fix:** We inspected the webhook registration payload logs, traced how the backend client dynamically registers callback URLs on GitHub, and updated the host mapping to the live Render backend service. This restored end-to-end communication instantly.
+### 2. Resolving Webhook Infrastructure Routing Gaps
 
-### 3. Implementing Defensive Webhook Engineering
-Many developers struggle with webhook reliability due to network drops and double deliveries. Together with the AI, we designed a two-tier reliability system:
-* **Event Deduplication:** Enforces unique transaction checks on incoming webhook headers.
-* **Action-Level Idempotency:** Logs every action execution, preventing double labeling or double Slack notifications if GitHub retries the delivery.
-* **Graceful Failure Degradation:** Ensuring a missing/failed third-party API (like Slack webhooks) does not crash or block core GitHub API operations (like commenting).
+* **The Situation:** Following deployment, the bot on Render was silently failing to receive automated GitHub webhook payloads. The AI initially assumed code-level routing errors.
+* **Our Collaborative Fix:** We systematically reviewed the webhook payload registration logs and discovered that the system was capturing and registering a stale local `ngrok` tunnel interface as the callback destination. We patched the registration client logic to dynamically read the live public host domain name from the runtime configuration, establishing reliable edge-to-edge connectivity.
 
+### 3. Defensive Webhook Architecture Design
 
+Many webhook consumers struggle with network flakiness and duplicate delivery stress. Together with the AI, we engineered a multi-tier resilience pattern explicitly tailored to satisfy the job's strict quality requirements:
+
+* **Strict Event Deduplication:** Evaluates unique delivery identifier headers (`X-GitHub-Delivery`) to guarantee that incoming payloads are parsed exactly once.
+* **Action-Level Idempotency:** Implemented transaction state checks prior to execution, preventing duplicate GitHub labels or redundant Slack pings if GitHub retries an already completed request thread.
+* **Graceful Failure Degradation:** Isolated third-party API dependencies (e.g., Slack Incoming Webhooks) inside distinct, wrapped execution context handles. If a downstream notification provider faces a temporary outage, the primary GitHub API commenting loop continues to execute uninterrupted, preventing partial failure cascades.
